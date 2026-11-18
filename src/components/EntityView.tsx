@@ -2,6 +2,7 @@ import { Check, Pencil, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { imageUrl } from '../api';
+import { ask, openLightbox } from '../dialogs';
 import { TypeIcon } from '../icons';
 import { backlinks } from '../links';
 import { TYPE_BY_KEY, entityName, entityUrl, type Entity } from '../schema';
@@ -77,7 +78,7 @@ export function EntityView({ entity, onDeleted, startEditing = false }: Props) {
 
   const onDelete = async () => {
     const warn = grouped.length ? `\n\n${grouped.length} other entr${grouped.length === 1 ? 'y refers' : 'ies refer'} to it; those links will break.` : '';
-    if (!confirm(`Burn the page “${entityName(entity)}”? This deletes the file.${warn}`)) return;
+    if (!(await ask(`Delete “${entityName(entity)}”? This deletes its markdown file.${warn}`))) return;
     await remove(entity);
     onDeleted?.();
   };
@@ -109,9 +110,9 @@ export function EntityView({ entity, onDeleted, startEditing = false }: Props) {
 
       <div className={`entity-top ${!editing && shown.data.image ? 'with-image' : ''}`}>
       {!editing && typeof shown.data.image === 'string' && shown.data.image && (
-        <a className="entity-figure" href={imageUrl(shown.data.image)} target="_blank" rel="noreferrer">
+        <button className="entity-figure" onClick={() => openLightbox(imageUrl(shown.data.image))}>
           <img src={imageUrl(shown.data.image)} alt={entityName(shown)} />
-        </a>
+        </button>
       )}
       <section className="fields">
         {def.fields.filter((f) => f.key !== 'name' && f.type !== 'hidden').map((f) =>

@@ -3,15 +3,17 @@ import { Link } from 'react-router-dom';
 import { TypeIcon } from '../icons';
 import { hasMap } from '../maps';
 import { TYPES } from '../schema';
+import { useProject } from '../project';
 import { useVault } from '../store';
 
 export function Home() {
-  const { entities, vaultPath } = useVault();
+  const { entities } = useVault();
+  const { project } = useProject();
   const count = (t: string) => entities.filter((e) => e.type === t).length;
   return (
     <div className="page">
       <header className="home-hero">
-        <h1 className="hero-title">Your world</h1>
+        <h1 className="hero-title">{project?.name}</h1>
         <p className="hero-sub">{entities.length} entries in the codex</p>
       </header>
       <ul className="tile-grid">
@@ -32,7 +34,7 @@ export function Home() {
           </Link>
         </li>
       </ul>
-      {vaultPath && <p className="vault-path">Vault · <code>{vaultPath}</code></p>}
+      {project && <p className="vault-path">Project folder · <code>{project.path}</code></p>}
     </div>
   );
 }

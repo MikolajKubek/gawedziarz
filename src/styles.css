@@ -1,6 +1,7 @@
 /* ───────────── Gawędziarz — modern dark with pixel-RPG accents ─────────────
    Change the look from here: fonts, colours, corner radius, the hard "8-bit" shadow. */
 :root {
+  color-scheme: dark;
   --bg: #0e0f13;
   --bg-2: #13151b;
   --surface: #191c24;
@@ -25,10 +26,10 @@
   --c-item: #c58af0;
   --c-glossary: #4fc3f7;
 
-  --font-ui: 'Inter', system-ui, sans-serif;
-  --font-display: 'Inter', system-ui, sans-serif; /* titles, buttons */
+  --font-ui: 'Inter Variable', 'Inter', system-ui, sans-serif;
+  --font-display: 'Inter Variable', 'Inter', system-ui, sans-serif; /* titles, buttons */
   --font-pixel: 'Pixelify Sans', 'Inter', monospace; /* small accents only */
-  --font-prose: 'Source Serif 4', Georgia, serif;
+  --font-prose: 'Source Serif 4 Variable', 'Source Serif 4', Georgia, serif;
 
   --radius: 3px;
   --px-shadow: 3px 3px 0 #000;
@@ -140,7 +141,16 @@ input[type='text'], input[type='number'], input:not([type]), select, textarea {
   border-radius: var(--radius);
   padding: 6px 10px;
 }
-select { cursor: pointer; }
+/* custom-drawn so it looks the same in every webview (WebKitGTK draws native light selects) */
+select {
+  cursor: pointer;
+  -webkit-appearance: none; appearance: none;
+  padding-right: 30px !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23b9b2a3' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+select option { background: var(--surface-2); color: var(--text); }
 input::placeholder, textarea::placeholder { color: var(--muted); }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
 
@@ -544,3 +554,41 @@ a.chip:hover { border-color: var(--accent); }
 
 .pin.has-avatar .pin-dot { width: 34px; height: 34px; padding: 0; overflow: hidden; }
 .pin.has-avatar .pin-dot img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+
+/* ───────────── desktop: welcome, project switcher, modals ───────────── */
+.sidebar-footer { margin-top: auto; padding: 14px 8px 0; border-top: 2px solid var(--border); display: flex; align-items: center; gap: 8px; }
+.project-name { flex: 1; min-width: 0; font-weight: 600; font-size: 13px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.welcome { height: 100vh; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at top, #1a1d26, var(--bg) 70%); padding: 24px; }
+.welcome-card { width: 100%; max-width: 620px; padding: 32px; background: var(--bg-2); border: 2px solid var(--border-strong); box-shadow: 8px 8px 0 #000; }
+.welcome-brand { display: flex; align-items: center; gap: 22px; margin-bottom: 28px; }
+.welcome-brand h1 { font-family: var(--font-pixel); font-size: 34px; }
+.muted { color: var(--muted); margin: 4px 0 0; }
+.brand-mark.big { transform: scale(2.2); transform-origin: top left; margin: 0 40px 44px 0; }
+.welcome-actions { display: flex; flex-direction: column; gap: 10px; }
+.welcome-action {
+  display: flex; align-items: center; gap: 14px; text-align: left;
+  padding: 14px 16px; font: inherit; color: var(--text); cursor: pointer;
+  background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius);
+  transition: transform 0.08s, box-shadow 0.08s, border-color 0.08s;
+}
+.welcome-action:hover:not(:disabled) { transform: translate(-2px, -2px); box-shadow: var(--px-shadow-lg); border-color: var(--accent); }
+.welcome-action svg { color: var(--accent); flex-shrink: 0; }
+.welcome-action span { display: flex; flex-direction: column; }
+.welcome-action small, .recent-open small { color: var(--muted); font-size: 12.5px; }
+.welcome-action:disabled { opacity: 0.6; cursor: wait; }
+.recent-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.recent-list li { display: flex; align-items: center; gap: 4px; }
+.recent-open { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; padding: 7px 10px; font: inherit; color: var(--text); background: none; border: 2px solid transparent; border-radius: var(--radius); cursor: pointer; text-align: left; }
+.recent-open:hover { background: var(--surface); border-color: var(--border); }
+.recent-open small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.modal-backdrop { position: fixed; inset: 0; z-index: 5000; background: rgba(0, 0, 0, 0.55); display: flex; align-items: flex-start; justify-content: center; padding-top: 18vh; }
+.modal { width: 420px; padding: 18px; background: var(--surface); border: 2px solid var(--border-strong); box-shadow: 8px 8px 0 #000; display: flex; flex-direction: column; gap: 12px; }
+.modal h3 { font-size: 17px; }
+.modal-actions { justify-content: flex-end; }
+
+.lightbox { position: fixed; inset: 0; z-index: 6000; background: rgba(5, 6, 8, 0.92); display: flex; align-items: center; justify-content: center; padding: 40px; cursor: zoom-out; }
+.lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 8px 8px 0 #000; }
+.lightbox-close { position: fixed; top: 16px; right: 20px; color: var(--text); }
+button.entity-figure { padding: 0; cursor: zoom-in; width: 100%; }

@@ -1,8 +1,10 @@
 import { ImagePlus } from 'lucide-react';
 import { useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react';
 import { uploadImage } from '../api';
+import { notify } from '../dialogs';
 import { TypeIcon } from '../icons';
-import { TYPE_BY_KEY, asList, entityName } from '../schema';
+import { matchRank } from '../links';
+import { TYPE_BY_KEY, entityName } from '../schema';
 import { useVault } from '../store';
 
 interface Props {
@@ -55,14 +57,11 @@ export function MarkdownEditor({ value, onChange, placeholder }: Props) {
     if (!query) return [];
     const q = query.text.toLowerCase();
     return entities
-      .filter(
-        (e) =>
-          entityName(e).toLowerCase().includes(q) ||
-          e.id.includes(q) ||
-          asList(e.data.aliases).some((a) => a.toLowerCase().includes(q)),
-      )
-      .sort((a, b) => entityName(a).localeCompare(entityName(b)))
-      .slice(0, 8);
+      .map((e) => ({ e, r: matchRank(e, q) }))
+      .filter((x) => x.r !== Infinity)
+      .sort((a, b) => a.r - b.r || entityName(a.e).localeCompare(entityName(b.e)))
+      .slice(0, 8)
+      .map((x) => x.e);
   }, [query, entities]);
 
   const updateQuery = (el: HTMLTextAreaElement) => {
@@ -113,7 +112,7 @@ export function MarkdownEditor({ value, onChange, placeholder }: Props) {
       const pre = before && !before.endsWith('\n') ? '\n\n' : '';
       onChange(before + pre + snippet + '\n' + cur.slice(at));
     } catch (e) {
-      alert(String(e));
+      notify(String(e));
     } finally {
       setUploading((n) => n - images.length);
     }

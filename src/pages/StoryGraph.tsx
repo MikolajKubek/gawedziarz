@@ -9,6 +9,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, imageUrl } from '../api';
 import { EntityView } from '../components/EntityView';
+import { ask } from '../dialogs';
 import { DEFAULT_KIND_ICON, KIND_ICONS } from '../icons';
 import { asList, entityName, normalizeRequires, type Entity } from '../schema';
 import { analyzeStory, autoLayout, storyEdges, wouldCycle, type Issue, type StoryEdgeKind } from '../story';
@@ -262,8 +263,8 @@ function StoryGraph() {
     navigate(`/story/${e.id}?edit=1`);
   };
 
-  const arrange = () => {
-    if (!confirm('Re-arrange every node automatically? Your manual placement will be lost.')) return;
+  const arrange = async () => {
+    if (!(await ask('Re-arrange every node automatically? Your manual placement will be lost.'))) return;
     persistLayout(autoLayout(story));
     setTimeout(() => flow.fitView({ duration: 400 }), 50);
   };

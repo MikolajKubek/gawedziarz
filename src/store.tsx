@@ -7,7 +7,6 @@ interface VaultState {
   byId: Map<string, Entity>;
   loading: boolean;
   error: string | null;
-  vaultPath: string;
   reload: () => Promise<void>;
   save: (e: Entity) => Promise<Entity>;
   create: (type: EntityType, name: string, data?: Record<string, unknown>) => Promise<Entity>;
@@ -20,7 +19,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [entities, setEntities] = useState<Entity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [vaultPath, setVaultPath] = useState('');
 
   const reload = useCallback(async () => {
     try {
@@ -35,7 +33,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     reload();
-    api.info().then((i) => setVaultPath(i.vault)).catch(() => {});
     // Pick up files edited by hand outside the app.
     const onFocus = () => reload();
     window.addEventListener('focus', onFocus);
@@ -69,7 +66,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   const byId = useMemo(() => new Map(entities.map((e) => [e.id, e])), [entities]);
 
-  const value = { entities, byId, loading, error, vaultPath, reload, save, create, remove };
+  const value = { entities, byId, loading, error, reload, save, create, remove };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

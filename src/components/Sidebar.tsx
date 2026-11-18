@@ -1,13 +1,16 @@
-import { Map as MapIcon, Search } from 'lucide-react';
+import { FolderOpen, Map as MapIcon, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { TypeIcon } from '../icons';
+import { useProject } from '../project';
+import { matchRank } from '../links';
 import { hasMap } from '../maps';
 import { TYPES, TYPE_BY_KEY, asList, entityName, entityUrl } from '../schema';
 import { useVault } from '../store';
 
 export function Sidebar() {
   const { entities } = useVault();
+  const { project, close } = useProject();
   const [q, setQ] = useState('');
   const navigate = useNavigate();
 
@@ -28,7 +31,7 @@ export function Sidebar() {
           asList(e.data.aliases).some((a) => a.toLowerCase().includes(s)) ||
           e.body.toLowerCase().includes(s),
       )
-      .sort((a, b) => Number(!entityName(a).toLowerCase().includes(s)) - Number(!entityName(b).toLowerCase().includes(s)))
+      .sort((a, b) => Math.min(matchRank(a, s), 4) - Math.min(matchRank(b, s), 4) || entityName(a).localeCompare(entityName(b)))
       .slice(0, 12);
   }, [q, entities]);
 
@@ -99,6 +102,13 @@ export function Sidebar() {
           </li>
         ))}
       </ul>
+
+      <div className="sidebar-footer">
+        <div className="project-name" title={project?.path}>{project?.name}</div>
+        <button className="btn btn-small btn-ghost" onClick={close} title="Open another project">
+          <FolderOpen size={13} /> Switch
+        </button>
+      </div>
     </nav>
   );
 }

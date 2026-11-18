@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { imageUrl, mapUrl, uploadMap } from '../api';
 import { EntityView } from '../components/EntityView';
+import { promptText } from '../dialogs';
 import { TYPE_ICONS } from '../icons';
 import { getPin, hasMap, hostMap, mapEntities, mapTrail, type Pin } from '../maps';
 import { entityName, type Entity } from '../schema';
@@ -171,7 +172,7 @@ export function MapView() {
         if (target) await setPin(target, pin);
         setSelected(placing.id);
       } else {
-        const name = prompt('Name of the new location:');
+        const name = await promptText('New location', 'Name of the new location');
         if (name?.trim()) {
           const e = await create('location', name.trim(), { parent: host.id, pin });
           setSelected(e.id);

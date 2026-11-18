@@ -6,20 +6,33 @@ that you can read, diff and edit by hand.
 
 ## Running
 
+Gawędziarz is a desktop app (Tauri 2: Rust backend + React frontend). Each **project is a plain folder**
+of markdown files, so you can keep each world in its own git repo, sync it, or edit it in any editor.
+
+**One-time setup (Ubuntu/Debian):**
+
 ```bash
-npm run setup     # once: creates .venv, installs Python + npm deps
-npm run dev       # FastAPI on :4317 + Vite on :5173 → open http://localhost:5173
+sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev \
+  libayatana-appindicator3-dev librsvg2-dev
+npm install
 ```
 
-`npm start` builds the frontend and serves everything from FastAPI on http://localhost:4317.
+You also need a Rust toolchain (`rustup`). For other systems, see https://tauri.app/start/prerequisites/.
 
-The vault lives in `./vault`. It is git-ignored and filled from `example-vault/` on the first run.
-To use another folder, e.g. a separate git repo for your story, run `VAULT_DIR=/path/to/world npm run dev`.
+```bash
+npm run dev        # run the desktop app with hot reload
+npm run build      # build installers / binaries into src-tauri/target/release/bundle
+npm test           # Rust unit tests (vault & YAML)
+```
+
+On launch the app reopens the last project. Use **Switch** at the bottom of the sidebar to open
+another folder, start an empty project, or create one from the bundled example world. You can also
+pass a folder directly: `gawedziarz /path/to/my-world`.
 
 ## Vault file structure
 
 ```
-my-world/                               ← the vault (VAULT_DIR)
+my-world/                               ← a project folder
 ├── glossary/
 │   ├── the-ashen-veil.md
 │   └── hollowborn.md
@@ -57,9 +70,9 @@ my-world/                               ← the vault (VAULT_DIR)
 ```
 
 The file name is the entry's id (`brother-aldric.md` → `brother-aldric`). Ids are unique across the
-whole vault. Structured fields go in YAML frontmatter and free text goes below it. Link to any entry
-from text with `[[id]]` or `[[id|label]]` (type `[[` in the editor to get autocomplete). The app reloads
-when its window regains focus, so hand edits show up.
+whole project. Structured fields go in YAML frontmatter and free text goes below it. Link to any entry
+from text with `[[id]]` or `[[id|label]]` (type `[[` in the editor to get autocomplete). The app re-reads
+the folder whenever its window regains focus, so edits made in other tools show up.
 
 ### A character
 
@@ -151,15 +164,21 @@ A node becomes available once its requirements are met, so several branches can 
 ## Project structure
 
 ```
-backend/          FastAPI: main.py (routes), vault.py (markdown/YAML read & write)
+src-tauri/        Rust backend (Tauri 2)
+  src/lib.rs      commands: open/create/switch project, recent projects, entity CRUD, uploads
+  src/vault.rs    reading & writing the project folder (markdown + YAML frontmatter)
+  src/yaml.rs     readable YAML emitter (inline short lists like `traits: [a, b]`)
 src/
+  api.ts          the bridge to Rust (Tauri `invoke`); images load through Tauri's asset protocol
+  project.tsx     the open project; pages/Welcome.tsx is the project picker
   schema.ts       entity types and their fields (add a field here and it appears in the editor)
   story.ts        story-graph logic: edges, auto-layout, validation
   maps.ts         map hierarchy and pin helpers
-  pages/          Home, EntityList, EntityPage, StoryGraph, Maps
+  pages/          Home, EntityList, EntityPage, StoryGraph, Maps, Welcome
   components/     EntityView, field editors, markdown renderer and editor, sidebar
-  styles.css      theme (all colours, fonts and the pixel shadow are CSS variables at the top)
-example-vault/    sample world copied to ./vault on the first run
+  styles.css      theme (colours, fonts and the pixel shadow are CSS variables at the top)
+example-vault/    sample world, embedded in the app binary for "New from example"
 ```
 
-**Stack:** Python/FastAPI · React 19 + TypeScript + Vite · React Flow (graph) · Leaflet (maps) · Lucide icons.
+**Stack:** Tauri 2 (Rust) · React 19 + TypeScript + Vite · React Flow (graph) · Leaflet (maps) · Lucide icons ·
+fonts bundled locally (Inter, Source Serif 4, Pixelify Sans), so the app works fully offline.

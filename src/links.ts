@@ -52,3 +52,18 @@ export function backlinks(target: Entity, entities: Entity[], byId: Map<string, 
   }
   return out;
 }
+
+/** Rank how well an entry matches a typed query: exact > prefix > word start > substring (lower is better). */
+export function matchRank(e: Entity, query: string): number {
+  const q = query.trim().toLowerCase();
+  if (!q) return 3;
+  const names = [String(e.data.name ?? e.id), e.id, ...asList(e.data.aliases)].map((n) => n.toLowerCase());
+  let best = Infinity;
+  for (const n of names) {
+    if (n === q) best = Math.min(best, 0);
+    else if (n.startsWith(q)) best = Math.min(best, 1);
+    else if (n.split(/[\s\-'’]+/).some((w) => w.startsWith(q))) best = Math.min(best, 2);
+    else if (n.includes(q)) best = Math.min(best, 3);
+  }
+  return best;
+}
