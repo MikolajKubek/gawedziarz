@@ -25,6 +25,14 @@ npm run build      # build installers / binaries into src-tauri/target/release/b
 npm test           # Rust unit tests (vault & YAML)
 ```
 
+**Install as a command** (into `~/.local/bin`, which is on PATH on most Linux setups). Re-run it after changes:
+
+```bash
+npm run install:local
+gawedziarz                 # reopens the last project
+gawedziarz ~/worlds/ashen  # opens a specific folder (relative paths work too: `gawedziarz .`)
+```
+
 On launch the app reopens the last project. Use **Switch** at the bottom of the sidebar to open
 another folder, start an empty project, or create one from the bundled example world. You can also
 pass a folder directly: `gawedziarz /path/to/my-world`.
