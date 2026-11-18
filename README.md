@@ -71,8 +71,8 @@ my-world/                               ← a project folder
 
 The file name is the entry's id (`brother-aldric.md` → `brother-aldric`). Ids are unique across the
 whole project. Structured fields go in YAML frontmatter and free text goes below it. Link to any entry
-from text with `[[id]]` or `[[id|label]]` (type `[[` in the editor to get autocomplete). The app re-reads
-the folder whenever its window regains focus, so edits made in other tools show up.
+from text with `[[id]]` or `[[id|label]]` (type `[[` in the editor to get autocomplete). The app watches
+the folder, so edits made in other tools (a text editor, `git pull`, …) show up immediately.
 
 ### A character
 
