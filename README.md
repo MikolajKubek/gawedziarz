@@ -1,0 +1,165 @@
+# Gawędziarz
+
+A storyteller's codex for writing a non-linear RPG. It holds the glossary, characters, creatures, items and
+locations, plus maps with pins and a **story graph**. Everything is stored as plain markdown files
+that you can read, diff and edit by hand.
+
+## Running
+
+```bash
+npm run setup     # once: creates .venv, installs Python + npm deps
+npm run dev       # FastAPI on :4317 + Vite on :5173 → open http://localhost:5173
+```
+
+`npm start` builds the frontend and serves everything from FastAPI on http://localhost:4317.
+
+The vault lives in `./vault`. It is git-ignored and filled from `example-vault/` on the first run.
+To use another folder, e.g. a separate git repo for your story, run `VAULT_DIR=/path/to/world npm run dev`.
+
+## Vault file structure
+
+```
+my-world/                               ← the vault (VAULT_DIR)
+├── glossary/
+│   ├── the-ashen-veil.md
+│   └── hollowborn.md
+├── characters/
+│   ├── brother-aldric.md
+│   └── mira-thornfield.md
+├── creatures/
+│   ├── marsh-wolf.md
+│   └── ash-wraith.md
+├── items/
+│   └── lantern-seal.md
+├── locations/
+│   ├── greywater-reaches.md            ← the world (has `map: world.svg`)
+│   ├── ostgard.md                      ← city inside the world, with its own map
+│   ├── ostgard-tavern.md               ← building inside Ostgard, pinned on Ostgard's map
+│   ├── greywater-marsh.md
+│   └── burned-chapel.md
+├── maps/                               ← uploaded map images
+│   ├── world.svg
+│   └── ostgard.svg
+├── images/                             ← portraits, covers and inline images
+│   ├── brother-aldric.svg
+│   └── market-square.png
+└── story/
+    ├── nodes/                          ← one file per story node
+    │   ├── arrival-in-ostgard.md
+    │   ├── meet-aldric.md
+    │   ├── buy-the-map.md
+    │   ├── bribe-the-guard.md
+    │   ├── enter-the-chapel.md
+    │   ├── join-the-cult.md
+    │   ├── ending-sealed.md
+    │   └── ending-torn.md
+    └── layout.json                     ← node positions in the graph only (cosmetic)
+```
+
+The file name is the entry's id (`brother-aldric.md` → `brother-aldric`). Ids are unique across the
+whole vault. Structured fields go in YAML frontmatter and free text goes below it. Link to any entry
+from text with `[[id]]` or `[[id|label]]` (type `[[` in the editor to get autocomplete). The app reloads
+when its window regains focus, so hand edits show up.
+
+### A character
+
+```markdown
+---
+name: Brother Aldric
+image: brother-aldric.svg                # portrait (file in images/)
+race: Human
+role: Disgraced priest
+faction: Order of the Lantern
+status: Alive
+location: ostgard-tavern
+traits: [pious, secretive, guilt-ridden]
+pin: {map: ostgard, x: 1000, y: 700}
+---
+
+## Backstory
+Once keeper of the [[burned-chapel]], Aldric fled the night it burned…
+
+![Aldric's old sketch](images/aldric-sketch.png)
+```
+
+### A location with its own map
+
+```markdown
+---
+name: Ostgard
+kind: City
+parent: greywater-reaches                       # it is inside the world…
+map: ostgard.svg                                # …has its own map (file in maps/)…
+pin: {map: greywater-reaches, x: 862, y: 455}   # …and sits here on the world map
+---
+```
+
+### A story node
+
+```markdown
+---
+name: Enter the Burned Chapel
+kind: checkpoint            # start | event | quest | checkpoint | ending
+location: burned-chapel
+characters: [brother-aldric]
+requires:
+  all: [meet-aldric]                    # every one of these must be completed
+  any: [buy-the-map, bribe-the-guard]   # …and at least one of these
+excludes: [join-the-cult]   # completing one closes the other (stored on both nodes)
+---
+
+What the player experiences here…
+```
+
+## Images
+
+Every entry type (characters, creatures, items, locations, glossary terms and story nodes) has an
+`image` field for a portrait or cover. It is shown next to the entry's fields, on list cards, on story
+graph nodes, and as the avatar on character map pins. Upload it in edit mode, or drop a file onto the field.
+
+Inside any description you can **paste** an image, **drag & drop** it into the text, or click
+**Image** above the editor. The file is saved to `images/` and the text gets a standard markdown
+reference: `![caption](images/file.png)`. Click an image to open it at full size.
+
+## Maps
+
+Any location can have a map image (open it → **Edit** → *Upload map image*, or use **Maps → Upload**
+to create a new top-level map).
+
+- Each location is shown on the map of its nearest ancestor (via `parent`) that has a map.
+- Each character is shown on the map of their `location`, or of the nearest ancestor of it that has a map.
+- `pin` holds pixel coordinates on that map's image, and `pin.map` records which map it was placed on.
+  If you later change the hierarchy, e.g. give the marsh its own map, entries inside it show up as
+  *not placed yet* instead of at the wrong spot.
+
+On a map you can use **Edit pins** to drag pins around and to place entries from the *Not placed yet* list.
+**New location** creates a location at the spot you click. Double-click a pin that has the map badge to open
+its sub-map. The breadcrumbs take you back up.
+
+## Story graph
+
+A node becomes available once its requirements are met, so several branches can be open at once.
+`requires: [a, b]` (a plain list) is shorthand for `all`. The graph's arrows are drawn from
+`requires`/`excludes` and are not stored anywhere else.
+
+- **Linking nodes:** drag from a node's right handle to another node to add a requirement, or an
+  exclusion, depending on the *Link* mode. Click a link to switch it between all and any, or to remove it.
+- **Focus:** dims everything not connected to the selected node.
+- **Problems:** lists links to missing nodes, loops, nodes that are unreachable because they need two
+  mutually exclusive branches, and dead ends.
+
+## Project structure
+
+```
+backend/          FastAPI: main.py (routes), vault.py (markdown/YAML read & write)
+src/
+  schema.ts       entity types and their fields (add a field here and it appears in the editor)
+  story.ts        story-graph logic: edges, auto-layout, validation
+  maps.ts         map hierarchy and pin helpers
+  pages/          Home, EntityList, EntityPage, StoryGraph, Maps
+  components/     EntityView, field editors, markdown renderer and editor, sidebar
+  styles.css      theme (all colours, fonts and the pixel shadow are CSS variables at the top)
+example-vault/    sample world copied to ./vault on the first run
+```
+
+**Stack:** Python/FastAPI · React 19 + TypeScript + Vite · React Flow (graph) · Leaflet (maps) · Lucide icons.
