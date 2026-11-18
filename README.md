@@ -1,13 +1,17 @@
 # Gawędziarz
 
-A storyteller's codex for writing a non-linear RPG. It holds the glossary, characters, creatures, items and
-locations, plus maps with pins and a **story graph**. Everything is stored as plain markdown files
-that you can read, diff and edit by hand.
+A desktop app for writing the story of a non-linear RPG. Each **project is a plain folder of markdown
+files**, so you can read, diff and edit everything by hand, keep each world in its own git repo, or sync it.
+
+- **Codex:** glossary, characters, creatures, items and locations, linked to each other with `[[wiki-links]]`.
+  Every page shows what refers to it.
+- **Story graph:** non-linear progression. Nodes declare what they *require* (all of / any of) and what they
+  *exclude*, and a problems panel finds loops, dead ends and unreachable nodes.
+- **Maps:** upload drawings, pin locations and characters on them, and open nested sub-maps (world → city → building).
+- **Images:** portraits and covers on every entry, plus images pasted or dropped into any description.
+- **Live folder:** edits made in other tools show up immediately. Nothing is deleted without asking.
 
 ## Running
-
-Gawędziarz is a desktop app (Tauri 2: Rust backend + React frontend). Each **project is a plain folder**
-of markdown files, so you can keep each world in its own git repo, sync it, or edit it in any editor.
 
 **One-time setup (Ubuntu/Debian):**
 
@@ -21,8 +25,9 @@ You also need a Rust toolchain (`rustup`). For other systems, see https://tauri.
 
 ```bash
 npm run dev        # run the desktop app with hot reload
-npm run build      # build installers / binaries into src-tauri/target/release/bundle
+npm run build      # build installers (e.g. .deb / .rpm / .AppImage) into src-tauri/target/release/bundle
 npm test           # Rust unit tests (vault & YAML)
+npm run typecheck  # TypeScript check of the frontend
 ```
 
 **Install as a command** (into `~/.local/bin`, which is on PATH on most Linux setups). Re-run it after changes:
@@ -33,11 +38,10 @@ gawedziarz                 # reopens the last project
 gawedziarz ~/worlds/ashen  # opens a specific folder (relative paths work too: `gawedziarz .`)
 ```
 
-On launch the app reopens the last project. Use **Switch** at the bottom of the sidebar to open
-another folder, start an empty project, or create one from the bundled example world. You can also
-pass a folder directly: `gawedziarz /path/to/my-world`.
+Use **Switch** at the bottom of the sidebar to open another folder, start an empty project, or create
+one from the bundled example world.
 
-## Vault file structure
+## Project folder structure
 
 ```
 my-world/                               ← a project folder
@@ -177,17 +181,19 @@ A node becomes available once its requirements are met, so several branches can 
 
 ```
 src-tauri/        Rust backend (Tauri 2)
-  src/lib.rs      commands: open/create/switch project, recent projects, entity CRUD, uploads
+  src/lib.rs      commands: open/create/switch project, recent projects, entity CRUD, uploads,
+                  unused-file cleanup, folder watcher
   src/vault.rs    reading & writing the project folder (markdown + YAML frontmatter)
   src/yaml.rs     readable YAML emitter (inline short lists like `traits: [a, b]`)
 src/
   api.ts          the bridge to Rust (Tauri `invoke`); images load through Tauri's asset protocol
   project.tsx     the open project; pages/Welcome.tsx is the project picker
+  dialogs.tsx     native confirm/error dialogs, text prompt, image lightbox
   schema.ts       entity types and their fields (add a field here and it appears in the editor)
   story.ts        story-graph logic: edges, auto-layout, validation
   maps.ts         map hierarchy and pin helpers
   pages/          Home, EntityList, EntityPage, StoryGraph, Maps, Welcome
-  components/     EntityView, field editors, markdown renderer and editor, sidebar
+  components/     EntityView, field editors, markdown renderer and editor, sidebar, Housekeeping
   styles.css      theme (colours, fonts and the pixel shadow are CSS variables at the top)
 example-vault/    sample world, embedded in the app binary for "New from example"
 ```
