@@ -182,6 +182,13 @@ pub struct Vault {
     pub root: PathBuf,
 }
 
+#[derive(Serialize, Debug)]
+pub struct UnusedFile {
+    pub kind: String,
+    pub name: String,
+    pub size: u64,
+}
+
 impl Vault {
     pub fn open(path: impl AsRef<Path>) -> R<Self> {
         let path = path.as_ref();
@@ -197,7 +204,7 @@ impl Vault {
         self.root.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "Untitled".into())
     }
 
-    fn entity_path(&self, kind: &str, id: &str) -> R<PathBuf> {
+    pub fn entity_path(&self, kind: &str, id: &str) -> R<PathBuf> {
         let folder = folder_for(kind)?;
         if !valid_id(id) {
             return Err(format!("Invalid id '{id}'"));
@@ -276,6 +283,52 @@ impl Vault {
 
     pub fn delete(&self, kind: &str, id: &str) -> R<()> {
         fs::remove_file(self.entity_path(kind, id)?).map_err(err)
+    }
+
+    pub fn layout_path(&self) -> PathBuf {
+        self.root.join(LAYOUT_FILE)
+    }
+
+    pub fn upload_path(&self, kind: &str, name: &str) -> R<PathBuf> {
+        if !valid_file_name(name) {
+            return Err(format!("Invalid file name '{name}'"));
+        }
+        Ok(self.root.join(upload_dir(kind)?).join(name))
+    }
+
+    /// Images in maps/ and images/ that no markdown file mentions (by file name, anywhere in
+    /// frontmatter or text). Files with non-slug names are never reported, so they are never deleted.
+    pub fn unused_files(&self) -> R<Vec<UnusedFile>> {
+        let mut corpus = String::new();
+        for (_, f) in TYPE_FOLDERS {
+            let Ok(dir) = fs::read_dir(self.root.join(f)) else { continue };
+            for e in dir.flatten() {
+                let p = e.path();
+                if p.extension().is_some_and(|x| x == "md") {
+                    corpus.push_str(&fs::read_to_string(&p).unwrap_or_default());
+                    corpus.push('\n');
+                }
+            }
+        }
+        let mut out = Vec::new();
+        for (kind, folder) in UPLOAD_DIRS {
+            let Ok(dir) = fs::read_dir(self.root.join(folder)) else { continue };
+            for e in dir.flatten() {
+                let name = e.file_name().to_string_lossy().into_owned();
+                if valid_file_name(&name) && !corpus.contains(&name) {
+                    let size = e.metadata().map(|m| m.len()).unwrap_or(0);
+                    out.push(UnusedFile { kind: kind.into(), name, size });
+                }
+            }
+        }
+        out.sort_by(|a, b| (&a.kind, &a.name).cmp(&(&b.kind, &b.name)));
+        Ok(out)
+    }
+
+    pub fn delete_upload(&self, kind: &str, name: &str) -> R<PathBuf> {
+        let p = self.upload_path(kind, name)?;
+        fs::remove_file(&p).map_err(err)?;
+        Ok(p)
     }
 
     pub fn layout(&self) -> Value {
@@ -371,6 +424,27 @@ mod tests {
 
         v.save_layout(json!({"nodes": {"b": {"y": 1, "x": 2}, "a": {"x": 0, "y": 0}}})).unwrap();
         assert_eq!(v.layout()["nodes"]["b"]["x"], 2);
+    }
+
+    #[test]
+    fn finds_unused_uploads() {
+        let tmp = tempfile::tempdir().unwrap();
+        let v = Vault::open(tmp.path()).unwrap();
+        for n in ["used.png", "inline.png", "orphan.png"] {
+            fs::write(v.root.join("images").join(n), b"x").unwrap();
+        }
+        fs::write(v.root.join("maps/world.svg"), b"x").unwrap();
+        fs::write(v.root.join("images/Hand Named.PNG"), b"x").unwrap();
+        let mut e = v.create("location", "World", None).unwrap();
+        e.data.insert("image".into(), json!("used.png"));
+        e.data.insert("map".into(), json!("world.svg"));
+        e.body = "![x](images/inline.png)".into();
+        v.save(&e).unwrap();
+        let unused: Vec<_> = v.unused_files().unwrap().into_iter().map(|u| format!("{}/{}", u.kind, u.name)).collect();
+        assert_eq!(unused, vec!["images/orphan.png"]);
+        v.delete_upload("images", "orphan.png").unwrap();
+        assert!(v.unused_files().unwrap().is_empty());
+        assert!(v.delete_upload("images", "../characters/world.md").is_err());
     }
 
     #[test]

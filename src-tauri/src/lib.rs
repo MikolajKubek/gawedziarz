@@ -1,20 +1,33 @@
 mod vault;
 mod yaml;
 
-use std::path::PathBuf;
-use std::sync::Mutex;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
+use notify_debouncer_mini::notify::{RecommendedWatcher, RecursiveMode};
+use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
 use serde::Serialize;
 use serde_json::{Map, Value};
-use tauri::{ipc::InvokeBody, AppHandle, Manager, State};
+use tauri::{ipc::InvokeBody, AppHandle, Emitter, Manager, State};
 
-use vault::{Entity, Vault, R};
+use vault::{Entity, UnusedFile, Vault, R};
 
 const MAX_RECENT: usize = 10;
 const APP_TITLE: &str = "Gawędziarz";
+/// Event sent to the frontend when files change outside the app.
+const CHANGED_EVENT: &str = "project-changed";
+/// Changes to a path within this window after the app wrote it are treated as our own.
+const OWN_WRITE_WINDOW: Duration = Duration::from_secs(3);
+
+/// Paths the app itself wrote recently, so the watcher can ignore them.
+type OwnWrites = Arc<Mutex<HashMap<PathBuf, Instant>>>;
 
 struct AppState {
     vault: Mutex<Option<Vault>>,
+    watcher: Mutex<Option<Debouncer<RecommendedWatcher>>>,
+    own_writes: OwnWrites,
     /// Folder passed on the command line (`gawedziarz /path/to/world`).
     initial_path: Mutex<Option<String>>,
 }
@@ -31,6 +44,35 @@ struct FolderInfo {
     exists: bool,
     empty: bool,
     is_project: bool,
+}
+
+fn mark_written(state: &State<AppState>, path: PathBuf) {
+    state.own_writes.lock().unwrap().insert(path, Instant::now());
+}
+
+fn is_relevant(p: &Path) -> bool {
+    let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
+    matches!(ext.as_str(), "md" | "png" | "jpg" | "jpeg" | "webp" | "gif" | "svg" | "avif")
+}
+
+/// Watch the project folder and notify the frontend about changes made by other programs.
+fn start_watcher(app: AppHandle, root: &Path, own: OwnWrites) -> Option<Debouncer<RecommendedWatcher>> {
+    let mut debouncer = new_debouncer(Duration::from_millis(400), move |res: DebounceEventResult| {
+        let Ok(events) = res else { return };
+        let now = Instant::now();
+        let external = {
+            let mut own = own.lock().unwrap();
+            own.retain(|_, t| now.duration_since(*t) < OWN_WRITE_WINDOW);
+            events.iter().any(|e| is_relevant(&e.path) && !own.contains_key(&e.path))
+        };
+        if external {
+            let _ = app.emit(CHANGED_EVENT, ());
+        }
+    })
+    .map_err(|e| eprintln!("file watcher unavailable: {e}"))
+    .ok()?;
+    debouncer.watcher().watch(root, RecursiveMode::Recursive).map_err(|e| eprintln!("cannot watch {root:?}: {e}")).ok()?;
+    Some(debouncer)
 }
 
 fn with_vault<T>(state: &State<AppState>, f: impl FnOnce(&Vault) -> R<T>) -> R<T> {
@@ -72,6 +114,7 @@ fn activate(app: &AppHandle, state: &State<AppState>, v: Vault) -> R<ProjectInfo
     recent.insert(0, info.path.clone());
     recent.truncate(MAX_RECENT);
     write_recent(app, &recent);
+    *state.watcher.lock().unwrap() = start_watcher(app.clone(), &v.root, state.own_writes.clone());
     *state.vault.lock().unwrap() = Some(v);
     Ok(info)
 }
@@ -103,6 +146,7 @@ fn create_project(app: AppHandle, state: State<AppState>, path: String, with_exa
 
 #[tauri::command]
 fn close_project(app: AppHandle, state: State<AppState>) {
+    *state.watcher.lock().unwrap() = None;
     *state.vault.lock().unwrap() = None;
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.set_title(APP_TITLE);
@@ -140,16 +184,22 @@ fn list_entities(state: State<AppState>) -> R<Vec<Entity>> {
 
 #[tauri::command]
 fn create_entity(state: State<AppState>, entity_type: String, name: String, data: Option<Map<String, Value>>) -> R<Entity> {
-    with_vault(&state, |v| v.create(&entity_type, &name, data))
+    let e = with_vault(&state, |v| v.create(&entity_type, &name, data))?;
+    with_vault(&state, |v| v.entity_path(&e.kind, &e.id)).map(|p| mark_written(&state, p))?;
+    Ok(e)
 }
 
 #[tauri::command]
 fn save_entity(state: State<AppState>, entity: Entity) -> R<Entity> {
+    let p = with_vault(&state, |v| v.entity_path(&entity.kind, &entity.id))?;
+    mark_written(&state, p);
     with_vault(&state, |v| v.save(&entity))
 }
 
 #[tauri::command]
 fn delete_entity(state: State<AppState>, entity_type: String, id: String) -> R<()> {
+    let p = with_vault(&state, |v| v.entity_path(&entity_type, &id))?;
+    mark_written(&state, p);
     with_vault(&state, |v| v.delete(&entity_type, &id))
 }
 
@@ -160,6 +210,8 @@ fn get_layout(state: State<AppState>) -> R<Value> {
 
 #[tauri::command]
 fn save_layout(state: State<AppState>, layout: Value) -> R<()> {
+    let p = with_vault(&state, |v| Ok(v.layout_path()))?;
+    mark_written(&state, p);
     with_vault(&state, |v| v.save_layout(layout))
 }
 
@@ -172,7 +224,26 @@ fn save_upload(state: State<'_, AppState>, request: tauri::ipc::Request<'_>) -> 
     let header = |k: &str| request.headers().get(k).and_then(|v| v.to_str().ok()).map(str::to_owned);
     let kind = header("x-kind").ok_or("Missing x-kind header")?;
     let name = percent_decode(&header("x-filename").unwrap_or_else(|| "image.png".into()));
-    with_vault(&state, |v| v.save_upload(&kind, &name, bytes))
+    let stored = with_vault(&state, |v| v.save_upload(&kind, &name, bytes))?;
+    with_vault(&state, |v| v.upload_path(&kind, &stored)).map(|p| mark_written(&state, p))?;
+    Ok(stored)
+}
+
+#[tauri::command(async)]
+fn unused_files(state: State<AppState>) -> R<Vec<UnusedFile>> {
+    with_vault(&state, |v| v.unused_files())
+}
+
+#[tauri::command]
+fn delete_files(state: State<AppState>, files: Vec<(String, String)>) -> R<usize> {
+    let mut n = 0;
+    for (kind, name) in files {
+        let p = with_vault(&state, |v| v.upload_path(&kind, &name))?;
+        mark_written(&state, p);
+        with_vault(&state, |v| v.delete_upload(&kind, &name))?;
+        n += 1;
+    }
+    Ok(n)
 }
 
 fn percent_decode(s: &str) -> String {
@@ -200,7 +271,12 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .manage(AppState { vault: Mutex::new(None), initial_path: Mutex::new(initial) })
+        .manage(AppState {
+            vault: Mutex::new(None),
+            watcher: Mutex::new(None),
+            own_writes: Arc::default(),
+            initial_path: Mutex::new(initial),
+        })
         .invoke_handler(tauri::generate_handler![
             inspect_folder,
             open_project,
@@ -217,6 +293,8 @@ pub fn run() {
             get_layout,
             save_layout,
             save_upload,
+            unused_files,
+            delete_files,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Gawędziarz");

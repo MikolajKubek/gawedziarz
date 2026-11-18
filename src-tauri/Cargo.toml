@@ -20,6 +20,7 @@ serde_json = { version = "1", features = ["preserve_order"] }
 serde_yaml = "0.9"
 include_dir = "0.7"
 unicode-normalization = "0.1"
+notify-debouncer-mini = "0.7.0"
 
 [dev-dependencies]
 tempfile = "3"

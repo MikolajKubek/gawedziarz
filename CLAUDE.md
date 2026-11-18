@@ -7,10 +7,11 @@ Desktop app (Tauri 2) for writing a non-linear RPG story. A project = a folder o
 - Don't use window.prompt/confirm/alert/open: they are unreliable in the webview. Use `src/dialogs.tsx` (`ask`, `notify`, `promptText`, `openLightbox`).
 - Uploads: raw-body `invoke('save_upload', bytes, {headers: {x-kind, x-filename (URI-encoded)}})`.
 - Entity fields are schema-driven (`src/schema.ts`). Story-graph logic is in `src/story.ts`; edges are derived from `requires`/`excludes` and `story/layout.json` holds only positions.
-- React Flow v13: `changes.applyTo(nodes)`.
+- React Flow v13: `changes.applyTo(nodes)`. A bare number as `padding` means PIXELS (use '10%'). `fitView()` is queued until the next internal node update, so the graph computes its own viewport (`fitNow` in StoryGraph.tsx).
+- File watching: `notify-debouncer-mini` in lib.rs emits `project-changed`; paths the app wrote itself in the last 3 s are ignored (`mark_written`). Call `mark_written` for any new write command.
 - Maps: Leaflet `CRS.Simple`; `pin: {map, x, y}` uses image pixel coords. Never use the YAML key `on` (YAML 1.1 parses it as boolean).
 - YAML output must stay byte-compatible: `cargo test` checks that every example-vault file round-trips exactly.
 - Theme: dark; Inter for UI and titles, Source Serif for prose, Pixelify Sans only for tiny accents. Fonts come from @fontsource (offline).
 - Checks: `npx tsc --noEmit`, `npm test`.
 
-Next ideas: playthrough simulator, story events on maps, renaming an entry's id with link rewrite, cleanup of unused images, file watcher instead of reload-on-focus.
+Next ideas: playthrough simulator, story events on maps, renaming an entry's id with link rewrite.

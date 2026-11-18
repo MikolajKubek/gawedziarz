@@ -1,11 +1,13 @@
 // Bridge to the Rust side (src-tauri). Everything that touches the disk goes through here.
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import type { Entity, EntityType } from './schema';
 
 export type Layout = { nodes?: Record<string, { x: number; y: number }> };
 export interface ProjectInfo { path: string; name: string }
 export interface FolderInfo { exists: boolean; empty: boolean; isProject: boolean }
 export type UploadKind = 'maps' | 'images';
+export interface UnusedFile { kind: UploadKind; name: string; size: number }
 
 // Root of the open project, used to build image URLs synchronously.
 let projectRoot = '';
@@ -30,7 +32,12 @@ export const api = {
   remove: (type: EntityType, id: string) => invoke<void>('delete_entity', { entityType: type, id }),
   getLayout: () => invoke<Layout>('get_layout'),
   saveLayout: (layout: Layout) => invoke<void>('save_layout', { layout }),
+  unusedFiles: () => invoke<UnusedFile[]>('unused_files'),
+  deleteFiles: (files: UnusedFile[]) => invoke<number>('delete_files', { files: files.map((f) => [f.kind, f.name]) }),
 };
+
+/** Fires when files in the project folder are changed by another program. Returns an unsubscribe fn. */
+export const onProjectChanged = (fn: () => void) => listen('project-changed', fn);
 
 const sep = () => (projectRoot.includes('\\') && !projectRoot.includes('/') ? '\\' : '/');
 export const fileUrl = (kind: UploadKind, file: string) => convertFileSrc(`${projectRoot}${sep()}${kind}${sep()}${file}`);

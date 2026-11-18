@@ -1,6 +1,6 @@
 import {
   Background, BackgroundVariant, Controls, Handle, MarkerType, MiniMap, Panel, Position, ReactFlow,
-  ReactFlowProvider, useNodesState, useReactFlow,
+  ReactFlowProvider, getViewportForBounds, useNodesInitialized, useNodesState, useReactFlow,
   type Connection, type Edge, type Node, type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -128,6 +128,44 @@ function StoryGraph() {
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState<CardNode>([]);
+
+  // Fit everything into view until the user pans/zooms themselves. The canvas can change size
+  // after the first render (window settling, side panel opening, node images loading), so refit
+  // whenever the canvas resizes or nodes get measured — not just once.
+  const nodesReady = useNodesInitialized();
+  const userMoved = useRef(false);
+  // Compute the viewport from the measured node bounds and the canvas's real size (React Flow's own
+  // fitView() is queued until its next internal node update, which is hard to reason about here).
+  const fitTimer = useRef<number | undefined>(undefined);
+  const fitNow = useCallback(() => {
+    const el = wrapper.current;
+    const ids = flow.getNodes().map((n) => n.id);
+    if (!el || ids.length === 0) return;
+    const { width, height } = el.getBoundingClientRect();
+    const bounds = flow.getNodesBounds(ids);
+    if (!width || !height || !bounds.width) return;
+    // Note: in React Flow v13 a bare number as padding means *pixels*; use percentages.
+    flow.setViewport(getViewportForBounds(bounds, width, height, 0.2, 1.25, { x: '7%', y: '9%' }));
+  }, [flow]);
+  const autoFit = useCallback(() => {
+    window.clearTimeout(fitTimer.current);
+    fitTimer.current = window.setTimeout(() => {
+      if (!userMoved.current) fitNow();
+    }, 50);
+  }, [fitNow]);
+  useEffect(() => {
+    if (nodesReady) autoFit();
+  }, [nodesReady, nodes.length, autoFit]);
+  useEffect(() => {
+    const el = wrapper.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => autoFit());
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      window.clearTimeout(fitTimer.current);
+    };
+  }, [autoFit, positions]);
   useEffect(() => {
     if (!positions) return;
     setNodes((prev) => {
@@ -266,7 +304,8 @@ function StoryGraph() {
   const arrange = async () => {
     if (!(await ask('Re-arrange every node automatically? Your manual placement will be lost.'))) return;
     persistLayout(autoLayout(story));
-    setTimeout(() => flow.fitView({ duration: 400 }), 50);
+    userMoved.current = false;
+    setTimeout(fitNow, 120);
   };
 
   const goTo = (id: string) => {
@@ -290,6 +329,7 @@ function StoryGraph() {
           edges={edges}
           nodeTypes={nodeTypes}
           onNodesChange={onNodesChange}
+          onMoveStart={(e) => { if (e) userMoved.current = true; }}
           onConnect={onConnect}
           onNodeClick={(_, n) => { setSelectedEdge(null); navigate(`/story/${n.id}`); }}
           onEdgeClick={(_, e) => setSelectedEdge(e.id)}
@@ -302,8 +342,6 @@ function StoryGraph() {
             persistLayout(next);
           }}
           deleteKeyCode={['Delete', 'Backspace']}
-          fitView
-          fitViewOptions={{ padding: 0.2 }}
           minZoom={0.2}
           proOptions={{ hideAttribution: true }}
         >

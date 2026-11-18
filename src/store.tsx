@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { api } from './api';
+import { api, onProjectChanged } from './api';
 import type { Entity, EntityType } from './schema';
 
 interface VaultState {
@@ -33,10 +33,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     reload();
-    // Pick up files edited by hand outside the app.
+    // Pick up files edited outside the app: live via the folder watcher, plus on focus as a fallback.
+    const unlisten = onProjectChanged(() => reload());
     const onFocus = () => reload();
     window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
+    return () => {
+      unlisten.then((f) => f());
+      window.removeEventListener('focus', onFocus);
+    };
   }, [reload]);
 
   const upsert = (e: Entity) =>

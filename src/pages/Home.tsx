@@ -1,5 +1,6 @@
 import { Map as MapIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { Housekeeping } from '../components/Housekeeping';
 import { TypeIcon } from '../icons';
 import { hasMap } from '../maps';
 import { TYPES } from '../schema';
@@ -35,6 +36,7 @@ export function Home() {
         </li>
       </ul>
       {project && <p className="vault-path">Project folder · <code>{project.path}</code></p>}
+      <Housekeeping />
     </div>
   );
 }

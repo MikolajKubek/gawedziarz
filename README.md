@@ -134,6 +134,10 @@ Inside any description you can **paste** an image, **drag & drop** it into the t
 **Image** above the editor. The file is saved to `images/` and the text gets a standard markdown
 reference: `![caption](images/file.png)`. Click an image to open it at full size.
 
+Removing or replacing an image only unlinks it, and the file stays in the folder. To tidy up, use
+**Housekeeping → Find unused images** on the home page. It lists files in `images/` and `maps/` that no
+entry mentions any more and deletes them after you confirm.
+
 ## Maps
 
 Any location can have a map image (open it → **Edit** → *Upload map image*, or use **Maps → Upload**
