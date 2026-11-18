@@ -1,7 +1,22 @@
-# Gawędziarz
+<p align="center">
+  <img src="docs/logo.svg" width="112" alt="Gawędziarz logo: a pixel-art flame" />
+</p>
 
-A desktop app for writing the story of a non-linear RPG. Each **project is a plain folder of markdown
-files**, so you can read, diff and edit everything by hand, keep each world in its own git repo, or sync it.
+<h1 align="center">Gawędziarz</h1>
+
+<p align="center">
+  <b>A vibe-coded game story planner.</b><br />
+  Plan the world and the non-linear story of your RPG: characters, places, maps and a quest graph.<br />
+  <i>Gawędziarz</i> is Polish for “storyteller”.
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/story-graph.png" alt="The story graph: quest nodes linked by requirements" width="900" />
+</p>
+
+A desktop app where each **project is a plain folder of markdown files**, so you can read, diff and edit
+everything by hand, keep each world in its own git repo, or sync it. Vibe-coded with
+[Claude Code](https://claude.com/claude-code).
 
 - **Codex:** glossary, characters, creatures, items and locations, linked to each other with `[[wiki-links]]`.
   Every page shows what refers to it.
@@ -10,6 +25,15 @@ files**, so you can read, diff and edit everything by hand, keep each world in i
 - **Maps:** upload drawings, pin locations and characters on them, and open nested sub-maps (world → city → building).
 - **Images:** portraits and covers on every entry, plus images pasted or dropped into any description.
 - **Live folder:** edits made in other tools show up immediately. Nothing is deleted without asking.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Story node details next to the graph](docs/screenshots/story-node.png) | ![A character page with portrait, fields and backlinks](docs/screenshots/character.png) |
+| **Story node:** requirements, exclusions and what refers to it | **Character:** portrait, traits, linked places, backstory |
+| ![World map with location pins](docs/screenshots/world-map.png) | ![City sub-map with character avatars](docs/screenshots/city-map.png) |
+| **World map:** pinned locations; Ostgard has its own sub-map | **Sub-map:** a city with its buildings and characters |
 
 ## Running
 
@@ -200,3 +224,7 @@ example-vault/    sample world, embedded in the app binary for "New from example
 
 **Stack:** Tauri 2 (Rust) · React 19 + TypeScript + Vite · React Flow (graph) · Leaflet (maps) · Lucide icons ·
 fonts bundled locally (Inter, Source Serif 4, Pixelify Sans), so the app works fully offline.
+
+## License
+
+[MIT](LICENSE) © 2026 Mikołaj Kubik
